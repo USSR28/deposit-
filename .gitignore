@@ -1,41 +1,682 @@
-# Compiled Lua sources
-luac.out
+if (not LPH_OBFUSCATED) then
+    LPH_NO_VIRTUALIZE = function(...) return (...) end;
+    LPH_JIT_MAX = function(...) return (...) end;
+    LPH_JIT_ULTRA = function(...) return (...) end;
+end
 
-# luarocks build files
-*.src.rock
-*.zip
-*.tar.gz
+function load()
+--// bypassington the anti cheat
+for Key, Object in pairs(getgc(true)) do
+    if type(Object) == "table" then
+        setreadonly(Object, false)
+        local indexInstance = rawget(Object, "indexInstance")
+        if type(indexInstance) == "table" and indexInstance[1] == "kick" then
+            setreadonly(indexInstance, false)
+            rawset(Object, "Table", {"kick", function() coroutine.yield() end})
+            break
+        end
+    end
+end
+--
+assert(getrawmetatable)
+grm = getrawmetatable(game)
+setreadonly(grm, false)
+old = grm.__namecall
 
-# Object files
-*.o
-*.os
-*.ko
-*.obj
-*.elf
+grm.__namecall = newcclosure(function(self, ...)
+    local args = {...}  
 
-# Precompiled Headers
-*.gch
-*.pch
+    local methodName = tostring(args[1])
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.def
-*.exp
+    local blockedMethods = {"TeleportDetect", "CHECKER_1", "CHECKER", "GUI_CHECK", "OneMoreTime", "checkingSPEED", "BANREMOTE", "PERMAIDBAN", "KICKREMOTE", "BR_KICKPC", "BR_KICKMOBILE"}
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+    if table.find(blockedMethods, methodName) then return end
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+    return old(self, ...)
+end)
 
+-- // Services
+local MainColor = Color3.fromRGB(255, 105, 180);
+local bullettp = false;
+local Players           = game:GetService("Players");
+local RunService        = game:GetService("RunService");
+local UserInputService  = game:GetService("UserInputService");
+local ReplicatedStorage = game:GetService("ReplicatedStorage");
+local Workspace         = game:GetService("Workspace");
+local TweenService      = game:GetService("TweenService");
+local Debris            = game:GetService('Debris');
+local Lighting       = game:GetService("Lighting");
+--
+local LocalPlayer       = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+local bodyClone = game:GetObjects("rbxassetid://8246626421")[1]; bodyClone.Humanoid:Destroy(); bodyClone.Head.Face:Destroy(); bodyClone.Parent = game.Workspace; bodyClone.HumanoidRootPart.Velocity = Vector3.new(); bodyClone.HumanoidRootPart.CFrame = CFrame.new(9999,9999,9999); bodyClone.HumanoidRootPart.Transparency = 1; bodyClone.HumanoidRootPart.CanCollide = false 
+local visualizeChams = Instance.new("Highlight"); visualizeChams.Enabled = true; visualizeChams.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop; visualizeChams.FillColor = Color3.fromRGB(102, 60, 153); visualizeChams.OutlineColor =  Color3.fromRGB(0, 0, 0); visualizeChams.Adornee = bodyClone; visualizeChams.OutlineTransparency = 0.2; visualizeChams.FillTransparency = 0.5; visualizeChams.Parent = game.CoreGui
+
+-- // Variables
+local crosshair_position = "Middle";
+local hitSoundsNames = {"Bameware", "Bubble", "Pick", "Pop", "Rust", "Sans", "Fart", "Big", "Vine", "Bruh", "Skeet", "Neverlose", "Fatality", "Bonk","Minecraft"}
+local dahood_ids = {2788229376, 16033173781, 7213786345}
+local bullet_path = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Siren") and workspace.Ignored.Siren:FindFirstChild("Radius") or nil
+local old_hrp = nil;
+local should_haalfi_destroy = false;
+local Radians = 0
+--
+local HitChamsFolder = Instance.new("Folder")
+HitChamsFolder.Name = "HitChamsFolder"
+HitChamsFolder.Parent = Workspace
+--
+-- // Crosshair Handler \\ --
+local Cursor = loadstring(game:HttpGet('https://pastebin.com/raw/D662tS1Q', true))() do
+    Cursor.enabled = false
+    Cursor.color = MainColor
+end
+
+-- // Yun Drawing API \\ --
+local YunDrawingApi = loadstring(game:HttpGet('https://raw.githubusercontent.com/caIIed/Librarys/main/Yun%20Api.lua', true))()
+
+local TargetCircle = YunDrawingApi:New3DCircle() do
+    TargetCircle.Visible = false
+    TargetCircle.ZIndex = 1
+    TargetCircle.Transparency = 1
+    TargetCircle.Color = MainColor
+    TargetCircle.Thickness = 1
+    TargetCircle.Radius = 2
+    TargetCircle.Rotation = Vector2.new(2, 0)
+end
+
+-- // Tables
+local Script = {
+    TargetAim = {
+        Enabled = false,
+        Type = "Target Aim",
+        Method = "FireServer",
+        Prediction = 0.143,
+        Stuff = {
+            LookAt = false,
+            Spectate = false,
+            Notify = false,
+            AutoPrediction = false
+        },
+        Teleport = {
+            GrenadeTP = false,
+            RocketTP = false
+        },
+        HitPart = {
+            ClosestPart = false,
+            ClosestMode = "Nearest Part",
+            Part = "HumanoidRootPart",
+        }
+    },
+    TriggerBot = {
+        Enabled = false,
+        Visualize = false,
+        Prediction = 0.135,
+        Range = 20, -- Self Explanatory
+        UseDelay = false,
+        Delay = 0.02
+    },
+    AimAssist = {
+        Enabled = false,
+        ThirdPerson = false,
+        FirstPerson = false,
+        MouseTP = false,
+        Prediction = 0.138,
+        HitPart = {
+            ClosestPart = false,
+            Part = "HumanoidRootPart",
+        },
+        Shake = {
+            Enabled = false,
+            Amount = 5
+        },
+        Smoothness = {
+            Enabled = false,
+            Amount = 0.1,
+            Style = "Elastic",
+            Direction = "InOut"
+        }
+    },
+    Checks = {
+        Enabled = false,
+        Vehicle = false,
+        Knocked = false,
+        Friend = false,
+        Wall = false
+    },
+    Resolver = {
+        Enabled = false,
+        Method = "LookVector", -- Options: LookVector, Recalculate, Zero Prediction, Move Direction
+        AntiAimViewer = false
+    },
+    Visuals = {
+        SelfESP = {
+           Chams = {
+                ForcefieldBodyEnabled = false,
+                ForcefieldToolsEnabled = false,
+                ForcefieldHatsEnabled = false,
+                ForcefieldBodyColor = MainColor,
+                ForcefieldToolsColor = MainColor,
+                ForcefieldHatsColor = MainColor
+            },
+            Trail = {
+                Enabled = false,
+                LifeTime = 5,
+                Color = MainColor
+            },
+            Aura = {
+                Enabled = false,
+                Type = "Heal"
+            }
+        },
+        BulletTracers = {
+            Enabled = false,
+            Duration = 5,
+            Fade = false,
+            FadeDuration = 5,
+            Color = MainColor,
+            Type = "Drawing",
+            Mode = "Global"
+        },
+        BulletImpacts = {
+            Enabled = false,
+            Width = 0.25,
+            Color = MainColor,
+            Duration = 5,
+            Fade = false,
+            FadeDuration = 5
+        },
+        Hit_Detection = {
+            Enabled = false,
+            Notify = false,
+            Clone = false,
+            HitEffect = false,
+            HitEffectType = "Nova",
+            Sound = false,
+            HitSound = "Rust"
+        },
+        HighLight = {
+            Enabled = false,
+            Fill = MainColor,
+            OutLine = Color3.fromRGB(255, 255, 255)
+        },
+        Line = {
+            Enabled = false,
+            Circle = false,
+            Color = MainColor,
+            Thickness = 2
+        },
+        Dot = {
+            Enabled = false,
+            Color = MainColor,
+            Size = 1
+        },
+        FoV = {
+            Enabled = false,
+            Color = Color3.fromRGB(255, 255, 0),
+            Size = 60,
+            Sticky = false,
+            Position = "Middle"
+        },
+    },
+    Rage = {
+       CFrameSpeed = {
+            Enabled = false,
+            Speed = 4
+        },
+       AutoArmor = {
+            Enabled = false,
+            BuyOn = 50,
+        },
+        Killbot = {
+            Enabled = false,
+            Type = "Orbit",
+            Randomization = 3,
+            Speed = 10,
+            Distance = 5,
+            Height = 5,
+            BypassDC = false
+        },
+        AutoBuy = {
+            SelectedFood = "Taco",
+            SelectedGun = "LMG",
+            SelectedLocation = "School"
+        },
+        Exploits = {
+            AutoStomp = false,
+            AntiBag = false,
+            AntiRPG = false,
+            NoJumpCooldown = false,
+            NoSlow = false,
+            NoRecoil = false,
+        }
+    },
+    AntiAim = {
+        CSync = {
+            Enabled = false,
+            VoidSpam = false,
+            DestroyCheaters = false,
+            Attach = false,
+            Type = "Random",
+            Visualize = {
+                Enabled = false,
+                Type = "Dot",
+                Color = MainColor
+            },
+            Randomize = { Value = 20 },
+            TargetStrafe = {
+                Speed = 0,
+                Height = 0,
+                Distance = 0
+            },
+            Custom = {
+                X = 0,
+                Y = 0,
+                Z = 0
+            }
+        },
+        VelocitySpoofer = {
+            Enabled = false,
+            Type = "Custom",
+            Pitch = 0,
+            Yaw = 0,
+            Roll = 0,
+            Multiplier = 1,
+            ShakeValue = 1,
+            AimViewer = {
+                Enabled = false,
+                Color = Color3.new(255,255,255),
+                Thickness = 1
+            }
+        },
+        FFlagDesync = {
+            Enabled = false,
+            SetNew = false,
+            FFlags = {"S2PhysicsSenderRate"},
+            SetNewAmount = 15,
+            Amount = 2
+        },
+        Network = {
+            Enabled = false,
+            WalkingCheck = false,
+            Amount = 0.1
+        }
+    },
+    Hooks = {},
+}
+--
+getgenv().taffy_esp = {
+    enabled = false,
+    box = {
+        boxes = false,
+        boxtype = "2D",
+        filled = false,
+        filledColor = Color3.fromRGB(255, 255, 255),
+        outline = false,
+        healthbar = false,
+        healthtext = false,
+        healthtextcolor = Color3.new(255, 255, 255),
+        color1 = Color3.fromRGB(255, 255, 255),
+        color2 = Color3.fromRGB(0, 0, 0),
+        healthbarcolor = Color3.fromRGB(0, 255, 0)
+    },
+    tracer = {
+        enabled = false,
+        unlocktracers = false,
+        color = Color3.fromRGB(255, 255, 255)
+    },
+    name = {
+        enabled = false,
+        outline = true,
+        size = 16.6,
+        font = 2,
+        color = Color3.fromRGB(255, 255, 255)
+    },
+    misc = {
+        teamcheck = false,
+        useteamcolors = false,
+        visibleonly = true,
+        target = false,
+        fade = false,
+        fadespeed = 4
+    },  
+    Toolsshow = {
+        enable = false,
+        outline = true,
+        size = 8,
+        font = 3,
+        color = Color3.fromRGB(255, 255, 255)
+    },
+    Skeletons = {
+        Enabled = false,
+        Color = Color3.new(255, 255, 255)
+    }
+}
+--
+local InnalillahiMichaelJackson = {
+    Locals = {
+        Angle = 0,
+        Target = nil,
+        AimAssistTarget = nil,
+        HitPart = nil,
+        AimAssistHitPart = nil,
+        AimPoint = nil,
+        AimAssistAimPoint = nil,
+        Position = nil,
+        AntiRpg = false,
+        NetworkPreviousTick = tick(),
+        NetworkShouldSleep = false,
+        Original = {},
+        FFlags = {},
+        AntiAimViewer = {
+            MouseRemoteFound = false,
+            MouseRemote = nil,
+            MouseRemoteArgs = nil,
+            MouseRemotePositionIndex = nil
+        }
+    },
+    HitSounds = {
+        Bameware = "rbxassetid://3124331820",
+        Bell = "rbxassetid://6534947240",
+        Bubble = "rbxassetid://6534947588",
+        Pick = "rbxassetid://1347140027",
+        Pop = "rbxassetid://198598793",
+        Rust = "rbxassetid://1255040462",
+        Sans = "rbxassetid://3188795283",
+        Fart = "rbxassetid://130833677",
+        Big = "rbxassetid://5332005053",
+        Vine = "rbxassetid://5332680810",
+        Bruh = "rbxassetid://4578740568",
+        Skeet = "rbxassetid://5633695679",
+        Neverlose = "rbxassetid://6534948092",
+        Fatality = "rbxassetid://6534947869",
+        Bonk = "rbxassetid://5766898159",
+        Minecraft = "rbxassetid://4018616850"
+    },
+    Guns = {
+        "Revolver",
+        "Double-Barrel SG",
+        "High-Medium Armor",
+        "Flamethrower",
+        "SMG",
+        "RPG",
+        "P90",
+        "LMG",
+        "Key"
+    },
+    Food = {
+        "Pizza",
+        "Taco",
+        "Chicken",
+        "Cranberry",
+        "Popcorn",
+        "Hamburger",
+        "HotDog"
+    },
+    Locations = {
+       "Uphill",
+       "Military",
+       "Park",
+       "Downhill",
+       "Double Barrel",
+       "Casino",
+       "Trailer",
+       "School",
+       "Revolver",
+       "Bank",
+       "Sewer",
+       "Fire Station",
+       "Hood Fitness",
+       "Hood Kicks",
+       "Jail",
+       "Church",
+    }
+}
+--
+local Deposit = {};
+local Notifications = {}
+--
+local MainStartESP = tick()
+local Esp = loadstring(game:HttpGet("https://pastebin.com/raw/3K449kRk"))()
+
+for _, Player in pairs(game:GetService("Players"):GetChildren()) do
+    Esp:Esp(Player)
+end
+
+Players.PlayerAdded:Connect(function(v)
+    Esp:Esp(v)
+end)
+--
+local protect_gui = function(Gui, Parent)
+    if gethui and syn and syn.protect_gui then 
+        Gui.Parent = gethui() 
+    elseif not gethui and syn and syn.protect_gui then 
+        syn.protect_gui(Gui)
+        Gui.Parent = Parent 
+    else 
+        Gui.Parent = Parent 
+    end
+end
+--
+local function GetDictionaryLength(Dictionary: table)
+    local Length = 0
+    for _ in pairs(Dictionary) do
+        Length += 1
+    end
+    return Length
+end
+--
+local InnalillahiMataKiri = Instance.new("ScreenGui")
+InnalillahiMataKiri.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+protect_gui(InnalillahiMataKiri, game:GetService("CoreGui"))
+--
+local Notifications_Frame = Instance.new("Frame")
+Notifications_Frame.Name = "Notifications"
+Notifications_Frame.BackgroundTransparency = 1
+Notifications_Frame.Size = UDim2.new(1, 0, 1, 36)
+Notifications_Frame.Position = UDim2.fromOffset(0, -36)
+Notifications_Frame.ZIndex = 5
+Notifications_Frame.Parent = InnalillahiMataKiri
+
+function Notifications:Notify(Content: string, Delay: number)
+    assert(typeof(Content) == "string", "missing argument #1, (string expected got " .. typeof(Content) .. ")")
+    local Delay = typeof(Delay) == "number" and Delay or 3
+
+    local Text = Instance.new("TextLabel")
+    local Notification = {
+        self = Text,
+        Class = "Notification"
+    }
+
+    Text.Name = "Notification"
+    Text.BackgroundTransparency = 1
+    Text.Position = UDim2.new(0.5, -100, 1, -150 - (GetDictionaryLength(Notifications) * 15))
+    Text.Size = UDim2.new(0, 0, 0, 15)
+    Text.Text = Content
+    Text.Font = Enum.Font.SourceSans
+    Text.TextSize = 17
+    Text.TextColor3 = Color3.new(1, 1, 1)
+    Text.TextStrokeTransparency = 0.2
+    Text.TextTransparency = 1
+    Text.RichText = true
+    Text.ZIndex = 4
+    Text.Parent = Notifications_Frame
+
+    local function CustomTweenOffset(Offset: number)
+        spawn(function()
+            local Steps = 33
+            for i = 1, Steps do
+                Text.Position += UDim2.fromOffset(Offset / Steps, 0)
+                RunService.RenderStepped:Wait()
+            end
+        end)
+    end
+
+    function Notification:Update()
+        
+    end
+
+    function Notification:Destroy()
+    Notifications[Notification] = nil
+    Text:Destroy()
+
+    local Index = 1
+    for _, v in pairs(Notifications) do
+        local self = v.self
+        self.Position += UDim2.fromOffset(0, 15)
+        Index += 1
+    end
+end
+
+
+    Notifications[Notification] = Notification
+    
+    local TweenIn  = TweenService:Create(Text, TweenInfo.new(0.3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, 0), {TextTransparency = 0})
+    local TweenOut = TweenService:Create(Text, TweenInfo.new(0.2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, 0), {TextTransparency = 1})
+    
+    TweenIn:Play()
+    CustomTweenOffset(100)
+    
+    TweenIn.Completed:Connect(function()
+        delay(Delay, function()
+            TweenOut:Play()
+            CustomTweenOffset(100)
+
+            TweenOut.Completed:Connect(function()
+                Notification:Destroy()
+            end)
+        end)
+    end)
+end
+--
+function Deposit:Render(type,properties)
+    local drawing_object = Drawing.new(type)
+    for property,value in pairs(properties) do
+        drawing_object[property] = value
+    end
+    return drawing_object
+end
+--
+function Deposit:Instance(type,properties)
+    local instance = Instance.new(type)
+    for property,value in pairs(properties) do
+        instance[property] = value
+    end
+    return instance
+end
+--
+local SilentAimFOVCircle = Deposit:Render("Circle", {
+    Visible = Script.Visuals.FoV.Enabled,
+    Color = Script.Visuals.FoV.Color,
+    Radius = Script.Visuals.FoV.Size,
+    Thickness = 1
+})
+--
+local TriggerBotDot = Deposit:Render("Circle", {
+    Visible = false,
+    Color = MainColor,
+    Radius = 20,
+    Thickness = 1
+})
+--
+local Line = Deposit:Render("Line", {
+    Visible = false,
+    Color = MainColor,
+    Thickness = 2,
+    Transparency = 0.5,
+})
+--
+local Dot = Deposit:Render("Circle", {
+    Visible = false,
+    Filled = true,
+    Color = MainColor,
+})
+--
+local TargetChams = Deposit:Instance("Highlight", {
+    Parent = nil,
+    FillColor = MainColor,
+    OutlineColor = MainColor,
+})
+--
+local CFrameDesyncDot  = Deposit:Render("Circle", {
+    Visible = false,
+    Filled = true
+})
+
+local CFrameDesyncTracer  = Deposit:Render("Line", {
+    Visible = false,
+    Color = MainColor,
+    Thickness = 2
+})
+--
+function Gun(Name)
+    for Check = 1, 100000 do
+        if game.Workspace.Ignored.Shop:FindFirstChild("[" .. Name .. "] - $" .. Check) then
+            return tostring("[" .. Name .. "] - $" .. Check)
+        end
+    end
+end
+
+function Ammo(Name)
+    for Check1 = 1, 250 do
+        for Check2 = 1, 500 do
+            if game.Workspace.Ignored.Shop:FindFirstChild(Check1 .. " [" .. Name .. " Ammo] - $" .. Check2) then
+                return tostring(Check1 .. " [" .. Name .. " Ammo] - $" .. Check2)
+            end
+        end
+    end
+end
+
+function Buy(Target, Delay, LagBack, Times)
+    if Times == nil then
+        Times = 3
+    end
+    local item = game.Workspace.Ignored.Shop:FindFirstChild(Target)
+    if item then
+        savepos = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+        for i = 1, Times do
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = item.Head.CFrame * CFrame.new(0, 3, 0)
+            task.wait(0.5)
+            for i = 1, 10 do
+                fireclickdetector(item.ClickDetector)
+            end
+            task.wait(0.5)
+        end
+        if LagBack then
+            task.wait(1)
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = savepos
+        end
+        if Delay ~= nil then
+            task.wait(Delay)
+        end
+    end
+end
+
+function BuyGunAndAmmo(GUN, times)
+    if
+        game.Players.LocalPlayer.Backpack:FindFirstChild("[" .. GUN .. "]") or
+            game.Players.LocalPlayer.Character:FindFirstChild("[" .. GUN .. "]")
+     then
+        Buy(Ammo(GUN), 0.3, true, times)
+    else
+        Buy(Gun(GUN), 0.5, true)
+    end
+end
+
+function tp(v) 
+   if v == "Uphill" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(482, 48, -602)
+   elseif v == "Military" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(58.71923828125, 25.25499725341797, -869.0357055664062) 
+   elseif v == "Park" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-268, 22, -754) 
+   elseif v == "Admin" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-800, -40, -887) 
+   elseif v == "Admin Guns" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-872, -33, -536) 
+   elseif v == "Downhill" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-565, 8, -737) 
+   elseif v == "Double Barrel" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-1042, 22, -261) 
+   elseif v == "Casino" then 
+       game.Players.LocalPlayer.Character.HumanoidRootPart.CFr
